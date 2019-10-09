@@ -1,5 +1,5 @@
 # Robotics_Assignment_2
-Group project- creating a smart robot that can make decisions using pre-set beliefs 
+Group project- a smart robot that can make decisions using pre-set beliefs 
 
 <h3> About </h3>
 
