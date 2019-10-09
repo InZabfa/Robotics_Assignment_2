@@ -1,0 +1,13 @@
+MAS jason {
+
+	infrastructure: Centralised
+
+	environment: ParamedicEnvironment
+
+	agents:
+		doctor;
+		paramedic;
+	
+	aslSourcePath:
+		"src/asl";
+}

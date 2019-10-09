@@ -1,0 +1,257 @@
+//calculate the price for this agent to complete the task sent by the doctor
+price(_Service,X) :- .random(R) & X = (10*R)+100.
+
+//starts speaking with the doctor agent and runs plays belief
+plays(initiator,doctor).
+
+
+//Introduces itself to the doctor agent so that it could send the instructions
++plays(initiator,In)
+   :  .my_name(Me)
+   <- .send(In,tell,introduction(participant,Me)).
+   
+// answer to Call For Proposal from Doctor agent
+// [source(A)] is a doctor
+// plays sends the initial communication name and the price
+// remember the proposal in the mental notes
+// tell doctor that this agent will take the task proposed
+
+@c1 +cfp(CNPId,Task,C,NC)[source(A)]
+   :  plays(initiator,A) & price(Task,Offer)
+   <- +proposal(CNPId,Task,C,NC,Offer);		// remember my proposal
+      .send(A,tell,propose(CNPId,Offer)).
+
+// Handling an Accept message
+// 
+@r1 +accept_proposal(CNPId)[source(A)]
+		: proposal(CNPId,Task,C,NC,Offer)
+		<- !getScenario(A);
+		    +startRescueMission(A,C,NC).
+			
++!getScenario(D) <- .send(D,askAll,location(_,_,_)).
+ 
+// Handling a Reject message
+@r2 +reject_proposal(CNPId)
+		<- .print("I lost CNP ",CNPId, ".");
+		// clear memory
+		-proposal(CNPId,_,_).
+
+//Adds victims
++location(victim,X,Y)[source(D)]: plays(initiator,D)
+    <- addVictim(X,Y).
+
+//Adds obstacles
++location(obstacle,X,Y)[source(D)]: plays(initiator,D) 
+	<- addObstacle(X,Y).
+
+//Adds hospital
++location(hospital,X,Y)[source(D)]: plays(initiator,D) 
+	<- addHospital(X,Y).
+    
+//receives information from the Doctor has values mental note (considered as new intention)
++startRescueMission(D,C,NC) : location(hospital,X,Y) & 
+							  location(victim,_,_) &
+							  location(obstacle,_,_) 
+    <- +criticalCount(C); 
+       +nonCriticalCount(NC);
+	   .print("The amount of critical: ", C , ". Amount of non-critical: ", NC);
+       !start.
+
++startRescueMission(D,C,NC)
+    <- .wait(5000);
+       -+startRescueMission(D,C,NC).
+
+//Loop until connected
++!start : not connected
+	<- .print("Not connected - trying again.");
+	.wait(5000);
+	!start.
+	
+//When connected, start reachedGoal method
++!start : connected
+	<- .print("Starting rescue missions.");
+	!reachedGoal.
+
+//REST OF JASON CODE --------------------------------------------------
+
++!requestUpdate
+	<- .print("Requesting updates from Server...");
+	requestUpdateServer;
+	.wait(1000);
+	!reachedGoal.
+
+//Must remove reachedGoal(X,Y) when we have taken victim to hospital
++!reachedGoal : not inTransit & not atGoal
+	<- .print("Getting closest victim...");
+	.wait(1000);
+	!getNextClosestVictim.
+	
++!reachedGoal : inTransit & not atGoal
+	<- .print("Waiting for Robot to reach goal.");
+ 	.wait(1000);
+ 	!requestUpdate.
+ 	
++!reachedGoal : atGoal & not inTransit
+	<- .print("Reached the goal. checking colour...");
+	.wait(1000);
+	!checkColourDoctor.
+	
++!reachedGoal
+	<- .print("Goal not reached. Requesting updates...");
+	!requestUpdate.
+ 
++getNextClosestVictim(P,X,Y)
+    <- .print("The proximity to (",X,",",Y,") is ",P);
+    .wait(1000).
+
++!getNextClosestVictim : location(victim,X,Y) & not costOfPathToVictim(_,X,Y) 
+    <- .print("Calculating path of ", X, "," , Y);
+    calculateCostOfPath(X,Y);
+    .wait(1000);
+	!getNextClosestVictim.
+
+// Terminating Goal
++!getNextClosestVictim : location(victim,_,_) 
+    <- .findall(moveTO(P,X,Y),costOfPathToVictim(P,X,Y),L);
+  		.min(L,moveTO(P,X,Y));
+		.print("Closest: ", moveTO(P,X,Y));
+  		moveToVictimAtLocation(X,Y);
+  		.wait(1000);
+  		.print("Path cost of (", X, ",", Y, ") is ", P);
+  		!requestUpdate.
+	
++!checkColourDoctor : colourAt(X,Y,C) //pass the current location of reached, and pass the x and y and colour from the environment
+	<- .print("Getting colour from doctor - given by environment...");
+	.send(doctor, tell, requestVictimStatus(X,Y,C)).
+
++requestVictimStatus(X,Y,C).
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+// OLD BELOW ----------------------------------------------------------------------------   
+ //If at hospital, get lowest path
+/*+!getNextLocationGoal: atHospital 
+	<- !getProximityGoal;
+	.print("We're at hospital, finding next victim.").
+
+//No critical patients left & we have some nonCriticals in memory go to them and remove from the list
++!getNextLocationGoal: criticalCount(0) & location(nonCritical,X,Y) 
+	<- victimAt(X,Y); 
+	-location(nonCritical,X,Y);
+	.print("There's no critical patients, we're somewhere.").
+
+//If there is a critical and we are not at hospital, get the next location of the victim
++!getNextLocationGoal: not criticalCount(0) & not atHospital 
+	<- !getProximityGoal;
+	.print("There's a crticial, and we're not at the hospital.").
+	
+	
++!getNextLocationGoal : criticalCount(0) & location(nonCritical,X,Y)
+    <- victimAt(X,Y);
+    -location(nonCritical,X,Y).
+
++!getNextLocationGoal <- !getProximityGoal.
+
++victimProximity(P,X,Y)
+    <- .print("The proximity to (",X,",",Y,") is ",P).
+
++!getProximityGoal : location(victim,X,Y) & not victimProximity(_,X,Y)
+    <- getMyProximity(X,Y);
+  !getProximityGoal.
+
+// Terminating Goal
++!getProximityGoal : location(victim,_,_)
+    <- .findall(moveTO(P,X,Y),victimProximity(P,X,Y),L);
+  		.min(L,moveTO(P,X,Y));
+  		victimAt(X,Y);
+  		.print("My closest is: ", P,"at:",X,Y);
+  		!atCorrectLocation(X,Y).
+  
+  
+//Check when not at hospital
++!atCorrectLocation(X,Y): reachedGoal(X,Y) & not atHospital
+	<- .print("Reached goal checking colour!"); 
+		-reachedGoal(X,Y);
+	   !checkColour.
+	  
+	 
+//Check when at hospital
++!atCorrectLocation(X,Y): reachedGoal(X,Y) & atHospital
+	<- .print("Go To next victim"); 
+		-reachedGoal(X,Y);
+	   !getNextLocationGoal.
+	   
+
++!atCorrectLocation(X,Y): criticalCount(0) & nonCriticalCount(0)
+	<- completedMission.
+
++!atCorrectLocation(X,Y) <- 
+	.wait(2000); 
+	checkCurrentLocation(X,Y);
+	.print("waiting to reach the correct location");
+	!atCorrectLocation(X,Y).
+
+//recursive only executed if we dont have a belief yet	
++startRescueMission(D,C,NC)
+    <- .wait(2000);  				// wait for the beliefs to be obtained
+       -+startRescueMission(D,C,NC).// replace the mental note
+
+
+
+
+//These are generated through communication with the
+// doctor agents, via the achievement task +!requestVictimStatus(D,X,Y,C)      
++critical(X,Y): location(hospital,HX,HY) & location(victim,X,Y)[source(D)]
+    <- .wait(2000); .print("The victim at ", X, ",", Y, " is critical");
+    -location(victim,X,Y)[source(D)]; 
+    .print("Removed the current victim :", X , Y);  
+    goToHospital(HX,HY);
+    .print("running the belief going to hospital");
+    !goingToHospital.
+    
++!goingToHospital: reachedGoal(X,Y) & atHospital
+	<- .print("got to hospital"); !getNextLocationGoal.
+	
++~critical(X,Y): location(hospital,HX,HY) & criticalCount(0) & location(victim,X,Y)[source(D)]
+    <- .wait(2000); .print("The victim at ", X, ",", Y, " is not critical, attending");
+    	goToHospital(HX,HY);
+    	!goingToHospital. 	
+    
++~critical(X,Y): not criticalCount(0) & location(victim,X,Y)[source(D)]
+    <- .wait(2000); .print("The victim at ", X, ",", Y, " is not critical, ignoring");
+   	-location(victim,X,Y)[source(D)];
+   	+location(nonCritical,X,Y);
+   	!getNextLocationGoal.
+   	
+
++requestVictimStatus(X,Y,C).
+
++!checkColour: reachedGoal(X,Y) & received(X,Y,C)
+	<- .print("Entered check colour");
+	.send(doctor, tell, requestVictimStatus(X,Y,C)).*/
+
+

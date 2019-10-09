@@ -1,0 +1,70 @@
+~ nagation of a fact in agent speak
+can have a rule: child(X,Y) :- parent(Y,X)
+& means an and 
+[source(percept)] - information received from the observation of environment
+[source(agentID)] - if agents communicate(shared belief from ID)
+[source(self)] - mental notes agent added beliefs- remember past activities
+triggering event: context <- body 
+	triggering event: events the plan meant to handle
+	context: represents circumstances in which plan can be used
+	body: actual plan to handle the event if the context is believed true
+		at the time of the plan chosen
+
+@label te: context <- body
+	can optionally have a label
+
++b add belief
+-b delete belief
++!g add achievement goal 
+-!g delete achievement goal
++?g add test goal
+-?g delete test goal
+
++!at(Coordinates): not at(Coordinates) & ~unsafe_path(Coordinates) 
+	<- move_towards(Coordinates);
+!at(Coordinates).
+
+believes that it is at specific coordinates if not there and believes that
+the path is safe to travel through run a method of a java file with
+same name and then when that method complete change the belief to be at
+the correct coordinates
+
+AGENTSPEAK COMMUNICATION OF AGENTS
+Use ACL - simple agent communication language
+received messages are tipically in the form of:
+	<sender, performative, content>
+sender: agentspeak term to state agent that sent the message (agentID)
+performative: this represents a goal that sender intends to achieve by 
+	sending the message
+content: an agentspeak formula or messgae body
+
+messages are passed through the internal actions:
+	.send(receiver,performative,content)
+	.broadcast(performative,content)
+.send action sends a message to specific agents: can be one or more agentIDs
+.broadcast action sends the messsage to all agents registered in the system
+
+PERFORMATIVES:
+sharing beliefs(information exchange) - tell and untell:
+	sender intends the receiver (not) to believe the literal in the
+	context to be true and then the sender believes it
+sharing plans(Deliberation) - tellHow and untellHow:
+	sender requests the receiver(not) to include within their plan libraty
+	the plan in the message content
+-aksHow: 
+	the sender wants to know the receiver's applicable plan for the triggering
+	event in the message content
+delegate and achievement goal(goal delegation) - achieve and unachieve
+	sender requests the receiver(not) to try and achieve the state-of-affairs
+	where the content od the message is true
+delegate the test goal(informative seeking) - askOne and askAll
+	sender wants to know weather the reciver knows (askOne) if the content
+	is true (i.e is there a single answer) or for all answers (askAll)
+.send(receiver,tellHow,"@p...:...<-..."):
+	add plan to the library of the receiver with plan label @p
+.send(receiver,untellHow,@p):
+	removes the plan with the plan @p from the plan library of receiver
+.send(receiver,askHow,Goal-addition-event):
+	requires receiver to pass all relevent plans to the triggering event
+	in the content
+
